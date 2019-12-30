@@ -1,6 +1,9 @@
 import jax.numpy as jnp
 
 
+def MakeIdentityPose():
+    return jnp.array([0., 0., 0., 1.0, 0., 0., 0.])
+
 def MakePose(translation, rotation, axis):
     cq = jnp.cos(0.5 * rotation)
     sq = jnp.sin(0.5 * rotation)

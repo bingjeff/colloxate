@@ -1,7 +1,5 @@
 from xml.etree import ElementTree as element_tree
 
-import jax.numpy as jnp
-
 import pose
 
 
@@ -61,7 +59,7 @@ def GetChain(urdf_root, root_link_name, tip_link_name):
 
 
 def ParseStringToNumericList(vec_string):
-    return [float(x) for x in vec_string.split(' ')]
+    return [float(x) for x in vec_string.split(' ') if x]
 
 
 def ReadAllChainsFromUrdf(urdf_path):
@@ -70,12 +68,12 @@ def ReadAllChainsFromUrdf(urdf_path):
     urdf_root = element_tree.fromstring(urdf_string)
     return GetAllChains(urdf_root)
 
+
 def ReadChainFromUrdf(urdf_path, root_link_name, tip_link_name):
     with open(urdf_path, 'r') as f:
         urdf_string = f.read()
     urdf_root = element_tree.fromstring(urdf_string)
     return GetChain(urdf_root, root_link_name, tip_link_name)
-
 
 
 def MakeRpyXyzPose(rpy, xyz):
@@ -87,12 +85,12 @@ def MakeRpyXyzPose(rpy, xyz):
 
 def ExtractOriginPose(joint_node):
     origin = joint_node.find('origin')
-    if origin:
+    if origin is not None:
         xyz = ParseStringToNumericList(origin.get('xyz'))
         rpy = ParseStringToNumericList(origin.get('rpy'))
         return MakeRpyXyzPose(rpy, xyz)
     else:
-        return jnp.zeros(7)
+        return pose.MakeIdentityPose()
 
 
 def ExtractAxisFunction(joint_node):
@@ -100,5 +98,22 @@ def ExtractAxisFunction(joint_node):
     return lambda rotation: pose.MakePose([0., 0., 0.], rotation, xyz)
 
 
-def CreateKinematicChainFunction(joint_chain):
-    pass
+def KinematicChainFunction(joint_values, joint_operations):
+    tip_pose = pose.MakeIdentityPose()
+    for v, op in zip(joint_values, joint_operations):
+        tip_pose = pose.MultiplyPoses(tip_pose, op(v))
+    return tip_pose
+
+
+def MakeKinematicChainFunction(joint_chain):
+    operations = []
+    prev_pose = pose.MakeIdentityPose()
+    for joint in joint_chain:
+        prev_pose = pose.MultiplyPoses(prev_pose, ExtractOriginPose(joint))
+        if joint.get('type') in ['revolute', 'continuous']:
+            joint_axis = ExtractAxisFunction(joint)
+            operations.append(lambda x, prev_pose=prev_pose, joint_axis=joint_axis: pose.MultiplyPoses(
+                prev_pose, joint_axis(x)))
+            prev_pose = pose.MakeIdentityPose()
+
+    return lambda v: KinematicChainFunction(v, operations)
