@@ -18,11 +18,11 @@ def main(argv):
     del argv  # Unused.
     print("Loading: {}".format(FLAGS.urdf_path))
 
-    chain = urdf_loader.ReadChainFromUrdf(
+    chain = urdf_loader.read_chain_from_urdf(
         FLAGS.urdf_path, FLAGS.root_link, FLAGS.tip_link)
     for joint in chain:
         print('{}: {}'.format(joint.get('name'), joint.get('type')))
-    kinematics = urdf_loader.MakeKinematicChainFunction(chain)
+    kinematics = urdf_loader.make_kinematic_chain_function(chain)
     zero_pose = jnp.array([0., 0., 0., 0., 0., 0., 0.])
     print('zero pose: {}'.format(kinematics(zero_pose)))
     bent_pose = jnp.array([0.1, 0.1, 0.1, 0.1, 0.1, 0.1, 0.1])

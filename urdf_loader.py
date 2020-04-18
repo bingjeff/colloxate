@@ -1,9 +1,9 @@
-from xml.etree import ElementTree as element_tree
+from xml.etree import ElementTree
 
 import pose
 
 
-def GetLinkMap(joint_nodes, link_reference):
+def get_link_map(joint_nodes, link_reference):
     link_map = {}
     for joint_node in joint_nodes:
         link_name = joint_node.find(link_reference).get('link')
@@ -14,25 +14,25 @@ def GetLinkMap(joint_nodes, link_reference):
     return link_map
 
 
-def GetJointChains(parent_link_map, child_link, list_of_chains=None):
+def get_joint_chains(parent_link_map, child_link, list_of_chains=None):
     old_chains = list_of_chains if list_of_chains else [[]]
     new_chains = []
     if child_link in parent_link_map:
         for joint_node in parent_link_map[child_link]:
             new_chains.extend(
-                GetJointChains(parent_link_map,
-                               joint_node.find('child').get('link'),
-                               [oc + [joint_node] for oc in old_chains]))
+                get_joint_chains(parent_link_map,
+                                 joint_node.find('child').get('link'),
+                                 [oc + [joint_node] for oc in old_chains]))
         return new_chains
     else:
         return old_chains
 
 
-def GetAllChains(urdf_root):
+def get_all_chains(urdf_root):
     joint_nodes = urdf_root.findall('joint')
 
-    child_link_map = GetLinkMap(joint_nodes, 'child')
-    parent_link_map = GetLinkMap(joint_nodes, 'parent')
+    child_link_map = get_link_map(joint_nodes, 'child')
+    parent_link_map = get_link_map(joint_nodes, 'parent')
 
     parent_link_set = set([v for v in parent_link_map])
     child_link_set = set([v for v in child_link_map])
@@ -40,16 +40,16 @@ def GetAllChains(urdf_root):
     root_links = list(parent_link_set.difference(child_link_set))
     joint_chains = []
     for root_link in root_links:
-        for joint_chain in GetJointChains(parent_link_map, root_link):
+        for joint_chain in get_joint_chains(parent_link_map, root_link):
             joint_chains.append(joint_chain)
 
     return joint_chains
 
 
-def GetChain(urdf_root, root_link_name, tip_link_name):
+def get_chain(urdf_root, root_link_name, tip_link_name):
     joint_nodes = urdf_root.findall('joint')
-    parent_link_map = GetLinkMap(joint_nodes, 'parent')
-    joint_chains = GetJointChains(parent_link_map, root_link_name)
+    parent_link_map = get_link_map(joint_nodes, 'parent')
+    joint_chains = get_joint_chains(parent_link_map, root_link_name)
     for chain in joint_chains:
         tip_joint = chain[-1]
         link_name = tip_joint.find('child').get('link')
@@ -58,62 +58,62 @@ def GetChain(urdf_root, root_link_name, tip_link_name):
     return None
 
 
-def ParseStringToNumericList(vec_string):
+def parse_string_to_numeric_list(vec_string):
     return [float(x) for x in vec_string.split(' ') if x]
 
 
-def ReadAllChainsFromUrdf(urdf_path):
+def read_all_chains_from_urdf(urdf_path):
     with open(urdf_path, 'r') as f:
         urdf_string = f.read()
-    urdf_root = element_tree.fromstring(urdf_string)
-    return GetAllChains(urdf_root)
+    urdf_root = ElementTree.fromstring(urdf_string)
+    return get_all_chains(urdf_root)
 
 
-def ReadChainFromUrdf(urdf_path, root_link_name, tip_link_name):
+def read_chain_from_urdf(urdf_path, root_link_name, tip_link_name):
     with open(urdf_path, 'r') as f:
         urdf_string = f.read()
-    urdf_root = element_tree.fromstring(urdf_string)
-    return GetChain(urdf_root, root_link_name, tip_link_name)
+    urdf_root = ElementTree.fromstring(urdf_string)
+    return get_chain(urdf_root, root_link_name, tip_link_name)
 
 
-def MakeRpyXyzPose(rpy, xyz):
-    yaw = pose.MakePose(xyz, rpy[2], [0.0, 0.0, 1.0])
-    pitch = pose.MakePose([0., 0., 0.], rpy[1], [0.0, 1.0, 0.0])
-    roll = pose.MakePose([0., 0., 0.], rpy[0], [1.0, 0.0, 0.0])
-    return pose.MultiplyPoses(pose.MultiplyPoses(yaw, pitch), roll)
+def make_rpy_xyz_pose(rpy, xyz):
+    yaw = pose.make_pose(xyz, rpy[2], [0.0, 0.0, 1.0])
+    pitch = pose.make_pose([0., 0., 0.], rpy[1], [0.0, 1.0, 0.0])
+    roll = pose.make_pose([0., 0., 0.], rpy[0], [1.0, 0.0, 0.0])
+    return pose.multiply(pose.multiply(yaw, pitch), roll)
 
 
-def ExtractOriginPose(joint_node):
+def extract_origin_pose(joint_node):
     origin = joint_node.find('origin')
     if origin is not None:
-        xyz = ParseStringToNumericList(origin.get('xyz'))
-        rpy = ParseStringToNumericList(origin.get('rpy'))
-        return MakeRpyXyzPose(rpy, xyz)
+        xyz = parse_string_to_numeric_list(origin.get('xyz'))
+        rpy = parse_string_to_numeric_list(origin.get('rpy'))
+        return make_rpy_xyz_pose(rpy, xyz)
     else:
-        return pose.MakeIdentityPose()
+        return pose.make_identity_pose()
 
 
-def ExtractAxisFunction(joint_node):
-    xyz = ParseStringToNumericList(joint_node.find('axis').get('xyz'))
-    return lambda rotation: pose.MakePose([0., 0., 0.], rotation, xyz)
+def extract_axis_function(joint_node):
+    xyz = parse_string_to_numeric_list(joint_node.find('axis').get('xyz'))
+    return lambda rotation: pose.make_pose([0., 0., 0.], rotation, xyz)
 
 
-def KinematicChainFunction(joint_values, joint_operations):
-    tip_pose = pose.MakeIdentityPose()
+def kinematic_chain_function(joint_values, joint_operations):
+    tip_pose = pose.make_identity_pose()
     for v, op in zip(joint_values, joint_operations):
-        tip_pose = pose.MultiplyPoses(tip_pose, op(v))
+        tip_pose = pose.multiply(tip_pose, op(v))
     return tip_pose
 
 
-def MakeKinematicChainFunction(joint_chain):
+def make_kinematic_chain_function(joint_chain):
     operations = []
-    prev_pose = pose.MakeIdentityPose()
+    prev_pose = pose.make_identity_pose()
     for joint in joint_chain:
-        prev_pose = pose.MultiplyPoses(prev_pose, ExtractOriginPose(joint))
+        prev_pose = pose.multiply(prev_pose, extract_origin_pose(joint))
         if joint.get('type') in ['revolute', 'continuous']:
-            joint_axis = ExtractAxisFunction(joint)
-            operations.append(lambda x, prev_pose=prev_pose, joint_axis=joint_axis: pose.MultiplyPoses(
+            joint_axis = extract_axis_function(joint)
+            operations.append(lambda x, prev_pose=prev_pose, joint_axis=joint_axis: pose.multiply(
                 prev_pose, joint_axis(x)))
-            prev_pose = pose.MakeIdentityPose()
+            prev_pose = pose.make_identity_pose()
 
-    return lambda v: KinematicChainFunction(v, operations)
+    return lambda v: kinematic_chain_function(v, operations)
