@@ -12,4 +12,4 @@ pipenv install
 Nothing exists yet, so this is just aspirational.
 
 * Write a collocation framework.
-* Write a kinematic tree.
+* Update the kinematic tree to handle joints that are not just revolute.
