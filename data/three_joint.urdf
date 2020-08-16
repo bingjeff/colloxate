@@ -1,0 +1,29 @@
+<?xml version="1.0" ?>
+
+<robot name="three_joint">
+  <link name="link_0"/>
+  <link name="link_1"/>
+  <link name="link_2"/>
+  <link name="link_3"/>
+  <!-- joint between link_0 and link_1 -->
+  <joint name="pan_joint_0" type="revolute">
+    <parent link="link_0"/>
+    <child link="link_1"/>
+    <origin rpy="0 0 0" xyz="0 0 0"/>
+    <axis xyz="0 0 1"/>
+  </joint>
+  <!-- joint between link_1 and link_2 -->
+  <joint name="pitch_joint_1" type="revolute">
+    <parent link="link_1"/>
+    <child link="link_2"/>
+    <origin rpy="0 0 0" xyz="0 0 0.1"/>
+    <axis xyz="0 1 0"/>
+  </joint>
+  <!-- joint between link_2 and link_3 -->
+  <joint name="roll_joint_2" type="revolute">
+    <parent link="link_2"/>
+    <child link="link_3"/>
+    <origin rpy="0 0 0" xyz="0 0 1.0"/>
+    <axis xyz="0 0 1"/>
+  </joint>
+</robot>

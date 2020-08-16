@@ -112,8 +112,9 @@ def make_kinematic_chain_function(joint_chain):
         prev_pose = pose.multiply(prev_pose, extract_origin_pose(joint))
         if joint.get('type') in ['revolute', 'continuous']:
             joint_axis = extract_axis_function(joint)
-            operations.append(lambda x, prev_pose=prev_pose, joint_axis=joint_axis: pose.multiply(
-                prev_pose, joint_axis(x)))
+            operations.append(
+                lambda x, _prev_pose=prev_pose, _joint_axis=joint_axis: pose.multiply(
+                    _prev_pose, _joint_axis(x)))
             prev_pose = pose.make_identity_pose()
 
     return lambda v: kinematic_chain_function(v, operations)
