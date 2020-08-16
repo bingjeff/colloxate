@@ -51,10 +51,12 @@ def get_chain(urdf_root, root_link_name, tip_link_name):
     parent_link_map = get_link_map(joint_nodes, 'parent')
     joint_chains = get_joint_chains(parent_link_map, root_link_name)
     for chain in joint_chains:
-        tip_joint = chain[-1]
-        link_name = tip_joint.find('child').get('link')
-        if link_name == tip_link_name:
-            return chain
+        maybe_chain = []
+        for joint in chain:
+            link_name = joint.find('child').get('link')
+            maybe_chain.append(joint)
+            if link_name == tip_link_name:
+                return maybe_chain
     return None
 
 
@@ -62,17 +64,19 @@ def parse_string_to_numeric_list(vec_string):
     return [float(x) for x in vec_string.split(' ') if x]
 
 
-def read_all_chains_from_urdf(urdf_path):
+def read_root_node_from_urdf(urdf_path):
     with open(urdf_path, 'r') as f:
         urdf_string = f.read()
-    urdf_root = ElementTree.fromstring(urdf_string)
+    return ElementTree.fromstring(urdf_string)
+
+
+def read_all_chains_from_urdf(urdf_path):
+    urdf_root = read_root_node_from_urdf(urdf_path)
     return get_all_chains(urdf_root)
 
 
 def read_chain_from_urdf(urdf_path, root_link_name, tip_link_name):
-    with open(urdf_path, 'r') as f:
-        urdf_string = f.read()
-    urdf_root = ElementTree.fromstring(urdf_string)
+    urdf_root = read_root_node_from_urdf(urdf_path)
     return get_chain(urdf_root, root_link_name, tip_link_name)
 
 
@@ -105,7 +109,7 @@ def kinematic_chain_function(joint_values, joint_operations):
     return tip_pose
 
 
-def make_kinematic_chain_function(joint_chain):
+def extract_dof_operations(joint_chain):
     operations = []
     prev_pose = pose.make_identity_pose()
     for joint in joint_chain:
@@ -116,5 +120,9 @@ def make_kinematic_chain_function(joint_chain):
                 lambda x, _prev_pose=prev_pose, _joint_axis=joint_axis: pose.multiply(
                     _prev_pose, _joint_axis(x)))
             prev_pose = pose.make_identity_pose()
+    return operations
 
+
+def make_kinematic_chain_function(joint_chain):
+    operations = extract_dof_operations(joint_chain)
     return lambda v: kinematic_chain_function(v, operations)
